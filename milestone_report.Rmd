@@ -1,0 +1,257 @@
+---
+title: "DataScience Specialization Capstone: Exporatory analysis of the text data"
+author: "Daria Stepanyan"
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning = FALSE, cache = TRUE)
+```
+
+## Executive summary
+
+This milestone report is based on exploratory data analysis of the [SwifKey data](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip) provided in the context of the Coursera Data Science Capstone. 
+The goal of this report is to load and explore three datasets containing text samples from US twitter, news and blogs in order to prepare for choosing an appropriate model for word prediction as part of the Capstone project for DataScience specialization on Coursera.
+
+This milestone report describes the major features of the training data based on exploratory data analysis and summarizes the plans for creating the predictive model.
+
+## Disclaimer
+Some of the code was obscured for clarity, including writing and reading files to/from the disc and memory clearing. Full code can be found on GitHub.
+
+## Loading data
+```{r setwd, include = FALSE, echo = FALSE}
+setwd("C:/Users/LeninGrib/Desktop/DS/capstone/project")
+```
+
+``` {r loaddata}
+if (!file.exists("Coursera-SwiftKey.zip")) {
+  download.file("https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip")
+  unzip("Coursera-SwiftKey.zip")
+}
+```
+
+## Reading the data
+
+The Data includes text samples taken from twitter, blogs and news in 4 languages: US English, German, Russian and Finnish. For the purpose of this analysis we are using only English texts.
+
+```{r readdata}
+filesen <- c("./final/en_US/en_US.twitter.txt", 
+        "./final/en_US/en_US.news.txt",
+        "./final/en_US/en_US.blogs.txt")
+
+
+full <- list()
+for (i in 1:3){
+        con <- file(filesen[i], "r") 
+        full[[i]] <- readLines(con, encoding = "UTF-8", skipNul = TRUE)
+        close(con)        
+}
+```
+
+Examining the basic features of the data:
+
+```{r stats}
+library(stringi)
+
+fullsum <- data.frame("File Name" = c("twitter", "news", "blogs"),
+        "num.lines" = c(0,0,0),
+        "total.num.words" = c(0,0,0),
+        "mean.num.words"=c(0,0,0))
+
+for (i in 1:3) {
+        fullsum[i,2] <- stri_stats_general(full[[i]])[1]
+        fullsum[i,3] <- sum(stri_count_words(full[[i]]))
+        fullsum[i,4] <- mean(stri_count_words(full[[i]]))
+}
+
+fullsum
+```
+
+### Sampling the data
+
+The dataset is quite large, and would be hard to manipulate, so instead a sample proportionate to each source's size (1%) will be taken to examine the data further
+
+```{r sample}
+library(dplyr)
+
+take_sample <- function(list, prob) {
+
+        set.seed(23072019)
+        sam.list <- list()
+        for (i in 1:3){
+        sam <- as.logical (rbinom (n = fullsum[i,2], 
+                1, prob = prob))
+        sam.list[[i]] <- data.frame(data = full[[i]][sam])
+        }
+        result <- rbind(sam.list[[1]],sam.list[[2]],sam.list[[3]]) 
+}
+
+cs_sample <- take_sample(full, 0.01)
+cs_sample <- cs_sample %>% mutate(data = as.character(data))
+
+str(cs_sample)
+```
+
+```{r savesample, include = FALSE, echo = FALSE}
+write.csv(cs_sample, "sample_en.csv")
+rm(list=ls())
+gc()
+```
+
+## Cleaning the data
+```{r loadsample, include = FALSE, echo = FALSE}
+cs_sample <- read.csv("sample_en.csv")
+```
+
+Before proceeding with NGrams analysis cleaning of data is required as it contains a lot of unusable features such as URLs, punctuation, mantions, hashtags and so on.
+Since the end purpose of the project is to try and predict the words the real users want to type given some text provided by them, the absence of stemming and stripping the stopwords is deliberate. (See Appendix 1 for results with stopwords removed).
+However, profanity still needs to be filtered. Initial cleaning is performed using this library: https://github.com/RobertJGabriel/Google-profanity-words which is based on the Google "bad words" list. 
+Furthermore very sparse words could be removed from the prediction, accounting for unusual profanity words, misspelling, typos, slang words and foreign words.
+
+``` {r cleaningcorpus}
+library(tm)
+
+corpus <- VCorpus(VectorSource(as.vector(cs_sample$data)))
+
+# remove URLS, mentions and hashtags
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
+corpus <- tm_map(corpus, toSpace, "[@#][^\\s]+")
+
+# remove numbers 
+corpus <- tm_map(corpus, content_transformer(removeNumbers))
+
+# remove punctuation and emojis
+corpus <- tm_map(corpus, content_transformer(removePunctuation), 
+        preserve_intra_word_dashes=TRUE)
+# lower case
+corpus <- tm_map(corpus, content_transformer(tolower)) 
+
+# remove profanity: 
+profanityWords = readLines('profanity_list.txt')
+corpus <- tm_map(corpus,removeWords, profanityWords)
+
+# remove white spaces
+corpus <- tm_map(corpus, stripWhitespace) 
+```
+
+```{r savecorpus, include = FALSE, echo = FALSE}
+saveRDS(corpus, file="expcorpus.RDS")
+```
+
+## Exploratory analysis
+
+```{r loadcorpus, include = FALSE, echo = FALSE}
+rm(list=ls())
+gc()
+corpus <- readRDS("./expcorpus.RDS")
+```
+
+In this exploratory analysis the focus will be on the NGrams to try and see which words are commonly met together in the sample text.
+Before proceeding to analyzing NGrams, the very sparse terms will be removed for saving the memory.
+
+```{r ngrams}
+library(RWeka)
+
+Unigram <- function(x) NGramTokenizer(x, Weka_control(min = 1, max = 1))
+Bigram <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+Trigram <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+Quadgram <- function(x) NGramTokenizer(x, Weka_control(min = 4, max = 4))
+
+ngr1 <- removeSparseTerms(TermDocumentMatrix(corpus, 
+        control = list(tokenize = Unigram)),0.9999)
+ngr2 <- removeSparseTerms(TermDocumentMatrix(corpus, 
+        control = list(tokenize = Bigram)), 0.99)
+ngr3 <- removeSparseTerms(TermDocumentMatrix(corpus, 
+        control = list(tokenize = Trigram)), 0.9999)
+ngr4 <- removeSparseTerms(TermDocumentMatrix(corpus, 
+        control = list(tokenize = Quadgram)), 0.9999)
+```
+
+
+Now, to see the most popular combinations we'll plot the results in order of decreasing frequency.
+
+
+```{r plotfreq}
+
+library(ggplot2)
+
+makeDF <- function(tdm) {
+        total <- sort(rowSums(as.matrix(tdm)), decreasing = TRUE)
+        return(data.frame(word = names(total), freq = total))
+}
+
+unidf <- makeDF(ngr1)
+bidf<- makeDF(ngr2)
+tridf <- makeDF(ngr3)
+quaddf<- makeDF(ngr4)
+
+plotGram <- function(df, label, top) {
+        ggplot(df[1:top,], aes(reorder(word, -freq), freq)) +
+                labs(x = label, y = "Frequency") +
+                theme(axis.text.x = element_text(angle = 60, size = 12, hjust = 1)) +
+                geom_bar(stat = "identity", fill = I("turquoise"))
+}
+
+plotGram(unidf, "Top 20 common unigrams in corpus", 20)
+plotGram(bidf, "Top 20 common bigrams in corpus", 20)
+plotGram(tridf, "Top 20 common trigrams in corpus", 20)
+plotGram(quaddf, "Top 20 common quadgrams in corpus", 20)
+```
+
+## Words coverage
+**How many unique words do you need in a frequency sorted dictionary to cover 50% of all word instances in the language? 90%?**
+
+```{r checkcoverage}
+cs_sample <- read.csv("sample_en.csv")
+
+unidf <- unidf %>% arrange(-freq)
+
+check_coverage <- function(percentage){
+coverage <- 0
+total <- sum(stri_count_words(cs_sample$data))
+for(i in 1:nrow(unidf)) {
+        coverage <- coverage + unidf$freq[i]
+        if(coverage >= percentage*total)
+                {break}
+}
+print(i)
+}
+
+check_coverage(0.5)
+check_coverage(0.9)
+```
+
+
+## Foreign words
+**How do you evaluate how many of the words come from foreign languages?**
+
+Generally, we can evaluate it using an english dictionary, however that would also filter out some of the recently trending words and foreign words that are used commonly by english speakers. As language is a living organism I think we should not filter words based on dictionary on the model training level and do necessary adjustments on the level of interface, filtering the predictions that are shown to the user.
+Besides, foreign words don't seem to be a huge problem compared to misspellings and typos, which will have to be spellchecked on the level of prediction anyway.
+
+## Increasing the coverage
+**Can you think of a way to increase the coverage -- identifying words that may not be in the corpora or using a smaller number of words in the dictionary to cover the same number of phrases?**
+
+#Appendix
+
+## Appendix 1. Environment data.
+```{r}
+sessionInfo()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
