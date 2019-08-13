@@ -134,7 +134,7 @@ $(document).ready(function () {
 </div>
 <div id="disclaimer" class="section level2">
 <h2>Disclaimer</h2>
-<p>Some of the code was obscured for clarity, including writing and reading files to/from the disc and memory clearing. Full code can be found on GitHub.</p>
+<p>Some of the code was obscured for clarity, including writing and reading files to/from the disc and memory clearing. Full code can be found on <a href="https://github.com/lenin-grib/capstone-project">GitHub</a>.</p>
 </div>
 <div id="loading-data" class="section level2">
 <h2>Loading data</h2>
@@ -145,7 +145,7 @@ $(document).ready(function () {
 </div>
 <div id="reading-the-data" class="section level2">
 <h2>Reading the data</h2>
-<p>The Data includes text samples taken from twitter, blogs and news in 4 languages: US English, German, Russian and Finnish. For the purpose of this analysis we are using only English texts.</p>
+<p>The data includes text samples taken from twitter, blogs and news in 4 languages: US English, German, Russian and Finnish. For the purpose of this analysis we are using only English texts.</p>
 <pre class="r"><code>filesen &lt;- c(&quot;./final/en_US/en_US.twitter.txt&quot;, 
         &quot;./final/en_US/en_US.news.txt&quot;,
         &quot;./final/en_US/en_US.blogs.txt&quot;)
@@ -203,7 +203,7 @@ str(cs_sample)</code></pre>
 </div>
 <div id="cleaning-the-data" class="section level2">
 <h2>Cleaning the data</h2>
-<p>Before proceeding with NGrams analysis cleaning of data is required as it contains a lot of unusable features such as URLs, punctuation, mantions, hashtags and so on. Since the end purpose of the project is to try and predict the words the real users want to type given some text provided by them, the absence of stemming and stripping the stopwords is deliberate. (See Appendix 1 for results with stopwords removed). However, profanity still needs to be filtered. Initial cleaning is performed using this library: <a href="https://github.com/RobertJGabriel/Google-profanity-words" class="uri">https://github.com/RobertJGabriel/Google-profanity-words</a> which is based on the Google “bad words” list. Furthermore very sparse words could be removed from the prediction, accounting for unusual profanity words, misspelling, typos, slang words and foreign words.</p>
+<p>Before proceeding with NGrams analysis cleaning of data is required as it contains a lot of unusable features such as URLs, punctuation, mentions, hashtags and so on. Since the end purpose of the project is to try and predict the words the real users want to type given some text provided by them, the absence of stemming and stripping the stopwords is deliberate. However, profanity still needs to be filtered. Initial cleaning is performed using this library: <a href="https://github.com/RobertJGabriel/Google-profanity-words" class="uri">https://github.com/RobertJGabriel/Google-profanity-words</a> which is based on the Google “bad words” list.</p>
 <pre class="r"><code>library(tm)
 
 corpus &lt;- VCorpus(VectorSource(as.vector(cs_sample$data)))
@@ -216,9 +216,10 @@ corpus &lt;- tm_map(corpus, toSpace, &quot;[@#][^\\s]+&quot;)
 # remove numbers 
 corpus &lt;- tm_map(corpus, content_transformer(removeNumbers))
 
-# remove punctuation and emojis
+# remove punctuation
 corpus &lt;- tm_map(corpus, content_transformer(removePunctuation), 
-        preserve_intra_word_dashes=TRUE)
+        preserve_intra_word_dashes=FALSE, 
+        preserve_intra_word_contractions = TRUE)
 # lower case
 corpus &lt;- tm_map(corpus, content_transformer(tolower)) 
 
@@ -302,11 +303,26 @@ check_coverage(0.5)</code></pre>
 <div id="foreign-words" class="section level2">
 <h2>Foreign words</h2>
 <p><strong>How do you evaluate how many of the words come from foreign languages?</strong></p>
-<p>Generally, we can evaluate it using an english dictionary, however that would also filter out some of the recently trending words and foreign words that are used commonly by english speakers. As language is a living organism I think we should not filter words based on dictionary on the model training level and do necessary adjustments on the level of interface, filtering the predictions that are shown to the user. Besides, foreign words don’t seem to be a huge problem compared to misspellings and typos, which will have to be spellchecked on the level of prediction anyway.</p>
+<p>Generally, we can evaluate it using an english dictionary, however that would also filter out some of the recently trending words and foreign words that are used commonly by english speakers. Besides, foreign words don’t seem to be a huge problem compared to misspellings and typos, which will have to be dealt with anyway.</p>
 </div>
 <div id="increasing-the-coverage" class="section level2">
 <h2>Increasing the coverage</h2>
 <p><strong>Can you think of a way to increase the coverage – identifying words that may not be in the corpora or using a smaller number of words in the dictionary to cover the same number of phrases?</strong></p>
+<ol style="list-style-type: decimal">
+<li>We should try and correct misspelled words using one of the open libraries.</li>
+<li>The common technique for smoothing the probabilities in the prediction model is to assign count of 1 to unseen n-grams, which means that all n-grams with count &lt;2 could be dropped.</li>
+<li>If we are going to use n-grams for prediction model with the backoff approach, that means that all unigrams don’t really have to be stored: only the most likely ones will ever be suggested, so we can only store top N unigrams.</li>
+</ol>
+<div id="next-steps-and-plans-on-building-the-model" class="section level3">
+<h3>Next steps and plans on building the model</h3>
+<ol style="list-style-type: decimal">
+<li>split dataset into train, validation and test sets.</li>
+<li>clean the datasets, including profanity, misspelled or niche words (we can use news corpora to remove the words in other datasets that aren’t seen there).</li>
+<li>Create N-grams up to N=4 and find an efficient way to store them.</li>
+<li>Create a separate unigram table for words most used in a beginning of a line.</li>
+<li>implement backoff mechanism for finding the word most likely to appear after given phrase and tune the parameters using the validation set.</li>
+</ol>
+</div>
 </div>
 <div id="appendix" class="section level1">
 <h1>Appendix</h1>

@@ -19,7 +19,7 @@ The goal of this report is to load and explore three datasets containing text sa
 This milestone report describes the major features of the training data based on exploratory data analysis and summarizes the plans for creating the predictive model.
 
 ## Disclaimer
-Some of the code was obscured for clarity, including writing and reading files to/from the disc and memory clearing. Full code can be found on GitHub.
+Some of the code was obscured for clarity, including writing and reading files to/from the disc and memory clearing. Full code can be found on [GitHub](https://github.com/lenin-grib/capstone-project).
 
 ## Loading data
 ```{r setwd, include = FALSE, echo = FALSE}
@@ -35,7 +35,7 @@ if (!file.exists("Coursera-SwiftKey.zip")) {
 
 ## Reading the data
 
-The Data includes text samples taken from twitter, blogs and news in 4 languages: US English, German, Russian and Finnish. For the purpose of this analysis we are using only English texts.
+The data includes text samples taken from twitter, blogs and news in 4 languages: US English, German, Russian and Finnish. For the purpose of this analysis we are using only English texts.
 
 ```{r readdata}
 filesen <- c("./final/en_US/en_US.twitter.txt", 
@@ -106,10 +106,10 @@ gc()
 cs_sample <- read.csv("sample_en.csv")
 ```
 
-Before proceeding with NGrams analysis cleaning of data is required as it contains a lot of unusable features such as URLs, punctuation, mantions, hashtags and so on.
-Since the end purpose of the project is to try and predict the words the real users want to type given some text provided by them, the absence of stemming and stripping the stopwords is deliberate. (See Appendix 1 for results with stopwords removed).
+Before proceeding with NGrams analysis cleaning of data is required as it contains a lot of unusable features such as URLs, punctuation, mentions, hashtags and so on.
+Since the end purpose of the project is to try and predict the words the real users want to type given some text provided by them, the absence of stemming and stripping the stopwords is deliberate.
 However, profanity still needs to be filtered. Initial cleaning is performed using this library: https://github.com/RobertJGabriel/Google-profanity-words which is based on the Google "bad words" list. 
-Furthermore very sparse words could be removed from the prediction, accounting for unusual profanity words, misspelling, typos, slang words and foreign words.
+
 
 ``` {r cleaningcorpus}
 library(tm)
@@ -124,9 +124,10 @@ corpus <- tm_map(corpus, toSpace, "[@#][^\\s]+")
 # remove numbers 
 corpus <- tm_map(corpus, content_transformer(removeNumbers))
 
-# remove punctuation and emojis
+# remove punctuation
 corpus <- tm_map(corpus, content_transformer(removePunctuation), 
-        preserve_intra_word_dashes=TRUE)
+        preserve_intra_word_dashes=FALSE, 
+        preserve_intra_word_contractions = TRUE)
 # lower case
 corpus <- tm_map(corpus, content_transformer(tolower)) 
 
@@ -229,11 +230,22 @@ check_coverage(0.9)
 ## Foreign words
 **How do you evaluate how many of the words come from foreign languages?**
 
-Generally, we can evaluate it using an english dictionary, however that would also filter out some of the recently trending words and foreign words that are used commonly by english speakers. As language is a living organism I think we should not filter words based on dictionary on the model training level and do necessary adjustments on the level of interface, filtering the predictions that are shown to the user.
-Besides, foreign words don't seem to be a huge problem compared to misspellings and typos, which will have to be spellchecked on the level of prediction anyway.
+Generally, we can evaluate it using an english dictionary, however that would also filter out some of the recently trending words and foreign words that are used commonly by english speakers. Besides, foreign words don't seem to be a huge problem compared to misspellings and typos, which will have to be dealt with anyway.
 
 ## Increasing the coverage
 **Can you think of a way to increase the coverage -- identifying words that may not be in the corpora or using a smaller number of words in the dictionary to cover the same number of phrases?**
+
+1. We should try and correct misspelled words using one of the open libraries.
+2. The common technique for smoothing the probabilities in the prediction model is to assign count of 1 to unseen n-grams, which means that all n-grams with count <2 could be dropped.
+3. If we are going to use n-grams for prediction model with the backoff approach, that means that all unigrams don't really have to be stored: only the most likely ones will ever be suggested, so we can only store top N unigrams.
+
+### Next steps and plans on building the model
+
+1. split dataset into train, validation and test sets.
+2. clean the datasets, including profanity, misspelled or niche words (we can use news corpora to remove the words in other datasets that aren't seen there).
+3. Create N-grams up to N=4 and find an efficient way to store them.
+4. Create a separate unigram table for words most used in a beginning of a line.
+5. implement backoff mechanism for finding the word most likely to appear after given phrase and tune the parameters using the validation set.
 
 #Appendix
 
