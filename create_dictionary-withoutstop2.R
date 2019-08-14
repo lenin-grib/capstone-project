@@ -34,6 +34,9 @@ cleancorpus <- function(dataset) {
         corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
         corpus <- tm_map(corpus, toSpace, "[@#][^\\s]+")
         
+        # remove stopwords
+        corpus <- tm_map(corpus, removeWords, stopwords("english"))
+        
         # remove profanity: 
         profanityWords = readLines('profanity_list.txt')
         corpus <- tm_map(corpus,removeWords, profanityWords)
@@ -124,10 +127,10 @@ process <- function(list){
         freq3 <- joinlist(tridf)
         freq4 <- joinlist(quaddf)
         
-        saveRDS(freq1, "freq1.RDS")
-        saveRDS(freq2, "freq2.RDS")
-        saveRDS(freq3, "freq3.RDS")
-        saveRDS(freq4, "freq4.RDS")
+        saveRDS(freq1, "freq1c.RDS")
+        saveRDS(freq2, "freq2c.RDS")
+        saveRDS(freq3, "freq3c.RDS")
+        saveRDS(freq4, "freq4c.RDS")
         
         
 }
@@ -154,7 +157,7 @@ unidftop <- unidf %>%
         head(10) %>% 
         mutate(term = capFirst(term)) %>%
         print()
-saveRDS(unidftop, "freqstart.RDS")
+saveRDS(unidftop, "freqstartc.RDS")
 
 
 ###########################################
