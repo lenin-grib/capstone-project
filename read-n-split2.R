@@ -54,8 +54,8 @@ readnsplit <- function(filename, name, nlines = 0) {
 
 set.seed(14082019)
 
-readnsplit(filesen[1], "news")
-readnsplit(filesen[2], "twi")
+readnsplit(filesen[1], "twi")
+readnsplit(filesen[2], "news")
 readnsplit(filesen[3], "blogs", 400000)
 
 ### prepare train set

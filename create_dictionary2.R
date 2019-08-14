@@ -1,5 +1,17 @@
+library(RWeka)
+library(tm)
+library(tidytext)
+library(dplyr)
+library(stringr)
+
+
 train <- readRDS("merged_train.RDS") ## 60% of twitter and news, 30% of blogs
 str(train)
+
+### create smaller sample for first words prediction and PoC
+set.seed(14082019)
+insam <- as.logical(rbinom (n = nrow(train), 1, prob = 0.05))
+subtrain <- data.frame(data = train[insam,])
 
 ######## splitting set into processible chunks
 k=40
@@ -7,10 +19,14 @@ trainlist <- split(train, (1:nrow(train) %% (k+1)))
 rm(train)
 
 ######### creating and cleaning corpus
-library(tm)
 
-cleancorpus <- function(data) {
-        trainv <- as.vector(data$data)
+cleancorpus <- function(dataset) {
+        
+        scrub_special_char <- function(x) iconv(x, to="ASCII", sub="?")
+        
+        dataset$data <- scrub_special_char(dataset$data)
+        
+        trainv <- as.vector(dataset$data)
         corpus <- VCorpus(VectorSource(trainv))
         
         # remove URLS, mentions and hashtags
@@ -40,7 +56,6 @@ cleancorpus <- function(data) {
 
 ######### creating ngrams
 
-library(RWeka)
 
 Unigram <- function(x) NGramTokenizer(x, Weka_control(min = 1, max = 1))
 Bigram <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
@@ -54,7 +69,7 @@ makeDF <- function(ng) {
                 group_by(term) %>% 
                 summarize(total = sum(count)) %>% 
                 select(term, total) %>%
-                arrange(total)
+                arrange(desc(total))
         return(tmp)
 }
 
@@ -64,8 +79,6 @@ makeDF <- function(ng) {
 #n = floor(length(trainv)/k)
 
 ############# gathering frequency data 
-library(tidytext)
-library(dplyr)
 
 joinlists <- function (list){
         freqdf <- data.frame("term", "count")
@@ -103,6 +116,7 @@ process <- function(list){
                 tridf[[i]] <- makeDF(ngr3)
                 quaddf[[i]] <- makeDF(ngr4)
                 
+                print(paste0(i/k*100,"% is completed"))
         }
         
         freq1 <- joinlist(unidf)
@@ -117,6 +131,35 @@ process <- function(list){
         
         
 }
+
+process(trainlist)
+
+##### find frequency for the first word
+
+subt <- subtrain %>% 
+        mutate(data = word(subtrain$data, 1)) %>%
+        select(data)
+
+capFirst <- function(s) {
+        paste(toupper(substring(s, 1, 1)), substring(s, 2), sep = "")
+}
+
+
+corpus1 <- cleancorpus(subt)
+ngr1 <- TermDocumentMatrix(corpus1, 
+        control = list(tokenize = Unigram))
+#inspect(ngr1)
+unidf <- makeDF(ngr1)
+unidftop <- unidf %>%
+        head(10) %>% 
+        mutate(term = capFirst(term)) %>%
+        print()
+saveRDS(unidftop, "freqstart.RDS")
+
+
+###########################################
+
+
 
 
 
