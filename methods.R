@@ -5,6 +5,7 @@ library(dplyr)
 library(stringr)
 library(reader)
 library(caret)
+library(tidyr)
 
 ###### remove very short and very long entries
 
@@ -109,6 +110,15 @@ makeDF <- function(ng) {
         return(tmp)
 }
 
+shapefreq <- function(df){
+        df <- df %>%
+                group_by(term) %>% 
+                summarize(total = sum(total)) %>% 
+                select(term, total) %>%
+                arrange(desc(total))
+        return(df)
+}
+
 ######### join lists (chunks of data) to data frame
 
 joinlist <- function (list){
@@ -155,7 +165,6 @@ process <- function(lst, stop){
                 ngr3 <- custngram(corpus,3, stop)
                 ngr4 <- custngram(corpus,4, stop)
                 
-                
                 unidf[[i]] <- makeDF(ngr1)
                 bidf[[i]] <- makeDF(ngr2)
                 tridf[[i]] <- makeDF(ngr3)
@@ -164,15 +173,84 @@ process <- function(lst, stop){
                 print(paste0(i/k*100,"% is completed"))
         }
         
-        freq1 <- joinlist(unidf)
-        freq2 <- joinlist(bidf)
-        freq3 <- joinlist(tridf)
-        freq4 <- joinlist(quaddf)
+        rm(corpus)
         
         postfix <- if (stop) "stop_removed" else ""
         
+        freq1 <- joinlist(unidf)
+        freq1 <- shapefreq(freq1)
         saveRDS(freq1, paste0("freq1",postfix,".RDS"))
+        print("1gram created")
+        rm(unidf,freq1)
+        
+        freq2 <- joinlist(bidf)
+        freq2 <- shapefreq(freq2)
         saveRDS(freq2, paste0("freq2",postfix,".RDS"))
+        print("2gram created")
+        rm(bidf,freq2)
+        
+        freq3 <- joinlist(tridf)
+        freq3 <- shapefreq(freq3)
         saveRDS(freq3, paste0("freq3",postfix,".RDS"))
+        print("3gram created")
+        rm(triidf,freq3)
+        
+        freq4 <- joinlist(quaddf)
+        freq4 <- shapefreq(freq4)
         saveRDS(freq4, paste0("freq4",postfix,".RDS"))
+        print("4gram created")
+        rm(quadf,freq4)
+        
+}
+
+##### cut terms that are ily met once and save to file
+#cutsparse <- function (df, fn){
+ #       
+ #       df %>%
+ #               filter(total >1) %>%
+ #               saveRDS(fn)
+#}
+
+
+##### group by starting phrase
+group_prob <- function(df){
+        df <- df %>%
+                arrange(start, total) #%>%
+               # mutate(start = as.factor(start))
+        return(df)
+}
+
+#### extract last words into separate column
+separate_last <- function(df, n){
+        if (n==2) {
+                df <- df %>%
+                        separate(term, 
+                                into = c("start", "end"), sep = " ") %>%
+                        group_prob
+        } else {
+                if (n==3)
+                {
+                        df <- df %>%
+                                separate(term, 
+                                        into = c("start1", "start2","end"),
+                                        sep = " ") %>%
+                                unite("start", c("start1", "start2"), 
+                                        sep = " " ) %>%
+                                group_prob
+                } else {
+                        if (n==4)
+                        {
+                                df <- df %>%
+                                        separate(term, 
+                                                into = c("start1", "start2", 
+                                                        "start3", "end"),
+                                                sep = " ") %>%
+                                        unite("start", c("start1", "start2", 
+                                                "start3"), 
+                                                sep = " " )
+                        }
+                }
+        }
+        return(df)
+        
 }
