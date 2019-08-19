@@ -9,17 +9,17 @@ train <- readRDS("merged_train.RDS") ## ~50% of twitter and news, ~20% of blogs
 str(train)
 
 ### create smaller sample for first words prediction and PoC
-#set.seed(19082019)
-#insam <- as.logical(rbinom (n = nrow(train), 1, prob = 0.001))
-#subtrain <- data.frame(data = train[insam,])
+set.seed(19082019)
+insam <- as.logical(rbinom (n = nrow(train), 1, prob = 0.1))
+subtrain <- data.frame(data = train[insam,])
 
 ######## splitting set into processible chunks
 k=40
 trainlist <- split(train, (1:nrow(train) %% (k+1)))
 rm(train)
 
-#k=10
-#subtrainlist <- split(subtrain, (1:nrow(subtrain) %% (k+1)))
+k=10
+subtrainlist <- split(subtrain, (1:nrow(subtrain) %% (k+1)))
 
 ######### METHODS
 ######### creating and cleaning corpus
@@ -154,10 +154,12 @@ capFirst <- function(s) {
 
 
 corpus1 <- cleancorpus(subt)
-ngr1 <- TermDocumentMatrix(corpus1, 
-        control = list(tokenize = Unigram))
+ngr1 <- dfm(corpus, ngrams = 1, concatenator = " ", 
+        remove = stopwords())
 unidfs <- makeDF(ngr1)
+stop <- c("rt", "love", "get")
 unidftop <- unidfs %>%
+        filter(!(term %in% stop)) %>%
         head(10) %>% 
         mutate(term = capFirst(term)) %>%
         print()
