@@ -6,20 +6,16 @@ library(stringr)
 
 
 train <- readRDS("merged_train.RDS") ## ~50% of twitter and news, ~20% of blogs
-str(train)
-
-### create smaller sample for first words prediction and PoC
-set.seed(19082019)
-insam <- as.logical(rbinom (n = nrow(train), 1, prob = 0.1))
-subtrain <- data.frame(data = train[insam,])
 
 ######## splitting set into processible chunks
 k=40
 trainlist <- split(train, (1:nrow(train) %% (k+1)))
+
 rm(train)
 
-k=10
-subtrainlist <- split(subtrain, (1:nrow(subtrain) %% (k+1)))
+#### for testing
+#k=10
+#subtrainlist <- split(subtrain, (1:nrow(subtrain) %% (k+1)))
 
 ######### METHODS
 ######### creating and cleaning corpus
@@ -54,18 +50,14 @@ cleancorpus <- function(dataset) {
         
         # remove white spaces
         corpus <- tm_map(corpus, stripWhitespace)
+        
+        # prepare for quanteda
         corpus <- corpus(corpus)
         
         return(corpus)
 }
 
-######### creating ngrams
-
-
-#Unigram <- function(x) NGramTokenizer(x, Weka_control(min = 1, max = 1))
-#Bigram <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
-#Trigram <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
-#Quadgram <- function(x) NGramTokenizer(x, Weka_control(min = 4, max = 4))
+######### creating dataframes from ngrams
 
 makeDF <- function(ng) {
         tmp <- tidy(ng)
@@ -78,12 +70,7 @@ makeDF <- function(ng) {
         return(tmp)
 }
 
-
-
-#k=20
-#n = floor(length(trainv)/k)
-
-############# gathering frequency data 
+######### join lists (chunks of data) to data frame
 
 joinlist <- function (list){
         x <- c("term", "total")
@@ -98,6 +85,8 @@ joinlist <- function (list){
                 arrange(count)
         return(freqdf)
 }
+
+############# gathering frequency data 
 
 process <- function(lst){
         
@@ -137,12 +126,16 @@ process <- function(lst){
 
 process(trainlist)
 
-#k=5
-#subtrainlist <- split(subtrain, (1:nrow(subtrain) %% (k+1)))
-
+###### tetsing
 #process(subtrainlist,5)
 
 ##### find frequency for the first word
+train <- readRDS("merged_train.RDS") ## ~50% of twitter and news, ~20% of blogs
+
+# create smaller sample for first words prediction
+set.seed(19082019)
+insam <- as.logical(rbinom (n = nrow(train), 1, prob = 0.1))
+subtrain <- data.frame(data = train[insam,])
 
 subt <- subtrain %>% 
         mutate(data = word(subtrain$data, 1)) %>%
@@ -151,7 +144,6 @@ subt <- subtrain %>%
 capFirst <- function(s) {
         paste(toupper(substring(s, 1, 1)), substring(s, 2), sep = "")
 }
-
 
 corpus1 <- cleancorpus(subt)
 ngr1 <- dfm(corpus, ngrams = 1, concatenator = " ", 
@@ -165,18 +157,21 @@ unidftop <- unidfs %>%
         print()
 saveRDS(unidftop, "freqstart.RDS")
 
-
 rm(list=ls())
+
+######### end of main functionality
+
+######### optimizing frequency tables
 
 freq1 <- readRDS(file = "freq1.RDS")
 
-freq1s <- freq1 %>%
-        group_by(term) %>%
-        summarize(total = sum(total)) %>% 
-        select(term, total) %>%
-        arrange(desc(total))
+#freq1s <- freq1 %>%
+#        group_by(term) %>%
+#        summarize(total = sum(total)) %>% 
+#        select(term, total) %>%
+#        arrange(desc(total))
 
-saveRDS(freq1s, "freq1s.RDS")
+#saveRDS(freq1s, "freq1s.RDS")
         
 
 freq2 <- readRDS(file = "freq2.RDS")
@@ -190,6 +185,7 @@ cutsparse <- function (df, fn){
                 saveRDS(fn)
 }
 
+cutsparse(freq1,"freq1s.RDS")
 cutsparse(freq2,"freq2s.RDS")
 cutsparse(freq3,"freq3s.RDS")
 cutsparse(freq4,"freq4s.RDS")
