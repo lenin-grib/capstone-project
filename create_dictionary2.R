@@ -124,7 +124,7 @@ process <- function(lst){
         
 }
 
-process(trainlist)
+Rprof(process(trainlist))
 
 ###### tetsing
 #process(subtrainlist,5)
