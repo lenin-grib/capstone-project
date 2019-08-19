@@ -1,28 +1,32 @@
-library(RWeka)
+library(quanteda)
 library(tm)
 library(tidytext)
 library(dplyr)
 library(stringr)
 
 
-train <- readRDS("merged_train.RDS") ## 60% of twitter and news, 30% of blogs
+train <- readRDS("merged_train.RDS") ## ~50% of twitter and news, ~20% of blogs
 str(train)
 
 ### create smaller sample for first words prediction and PoC
-set.seed(14082019)
-insam <- as.logical(rbinom (n = nrow(train), 1, prob = 0.05))
-subtrain <- data.frame(data = train[insam,])
+#set.seed(19082019)
+#insam <- as.logical(rbinom (n = nrow(train), 1, prob = 0.001))
+#subtrain <- data.frame(data = train[insam,])
 
 ######## splitting set into processible chunks
 k=40
 trainlist <- split(train, (1:nrow(train) %% (k+1)))
 rm(train)
 
+#k=10
+#subtrainlist <- split(subtrain, (1:nrow(subtrain) %% (k+1)))
+
+######### METHODS
 ######### creating and cleaning corpus
 
 cleancorpus <- function(dataset) {
         
-        scrub_special_char <- function(x) iconv(x, to="ASCII", sub="?")
+        scrub_special_char <- function(x) iconv(x, "UTF-8", "ascii", sub="?")
         
         dataset$data <- scrub_special_char(dataset$data)
         
@@ -49,7 +53,8 @@ cleancorpus <- function(dataset) {
         corpus <- tm_map(corpus, content_transformer(tolower)) 
         
         # remove white spaces
-        corpus <- tm_map(corpus, stripWhitespace) 
+        corpus <- tm_map(corpus, stripWhitespace)
+        corpus <- corpus(corpus)
         
         return(corpus)
 }
@@ -57,10 +62,10 @@ cleancorpus <- function(dataset) {
 ######### creating ngrams
 
 
-Unigram <- function(x) NGramTokenizer(x, Weka_control(min = 1, max = 1))
-Bigram <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
-Trigram <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
-Quadgram <- function(x) NGramTokenizer(x, Weka_control(min = 4, max = 4))
+#Unigram <- function(x) NGramTokenizer(x, Weka_control(min = 1, max = 1))
+#Bigram <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+#Trigram <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+#Quadgram <- function(x) NGramTokenizer(x, Weka_control(min = 4, max = 4))
 
 makeDF <- function(ng) {
         tmp <- tidy(ng)
@@ -80,8 +85,10 @@ makeDF <- function(ng) {
 
 ############# gathering frequency data 
 
-joinlists <- function (list){
-        freqdf <- data.frame("term", "count")
+joinlist <- function (list){
+        x <- c("term", "total")
+        freqdf <- data.frame(matrix(ncol = 2, nrow = 0))
+        colnames(freqdf) <- x
         for (i in 1:k){
                 freqdf <- rbind(freqdf, list[[i]])
         }
@@ -92,7 +99,7 @@ joinlists <- function (list){
         return(freqdf)
 }
 
-process <- function(list){
+process <- function(lst){
         
         unidf <- list()
         bidf<- list()
@@ -100,15 +107,11 @@ process <- function(list){
         quaddf<- list()
         
         for (i in 1:k) {
-                corpus <- cleancorpus(trainlist[[i]])
-                ngr1 <- removeSparseTerms(TermDocumentMatrix(corpus, 
-                        control = list(tokenize = Unigram)), 0.9)
-                ngr2 <- TermDocumentMatrix(corpus, 
-                        control = list(tokenize = Bigram))
-                ngr3 <- TermDocumentMatrix(corpus, 
-                        control = list(tokenize = Trigram))
-                ngr4 <- TermDocumentMatrix(corpus, 
-                        control = list(tokenize = Quadgram))
+                corpus <- cleancorpus(lst[[i]])
+                ngr1 <- dfm(corpus, ngrams = 1, concatenator = " ")
+                ngr2 <- dfm(corpus, ngrams = 2, concatenator = " ")
+                ngr3 <- dfm(corpus, ngrams = 3, concatenator = " ")
+                ngr4 <- dfm(corpus, ngrams = 4, concatenator = " ")
                 
                 
                 unidf[[i]] <- makeDF(ngr1)
@@ -134,6 +137,11 @@ process <- function(list){
 
 process(trainlist)
 
+#k=5
+#subtrainlist <- split(subtrain, (1:nrow(subtrain) %% (k+1)))
+
+#process(subtrainlist,5)
+
 ##### find frequency for the first word
 
 subt <- subtrain %>% 
@@ -148,13 +156,41 @@ capFirst <- function(s) {
 corpus1 <- cleancorpus(subt)
 ngr1 <- TermDocumentMatrix(corpus1, 
         control = list(tokenize = Unigram))
-#inspect(ngr1)
-unidf <- makeDF(ngr1)
-unidftop <- unidf %>%
+unidfs <- makeDF(ngr1)
+unidftop <- unidfs %>%
         head(10) %>% 
         mutate(term = capFirst(term)) %>%
         print()
 saveRDS(unidftop, "freqstart.RDS")
+
+
+rm(list=ls())
+
+freq1 <- readRDS(file = "freq1.RDS")
+
+freq1s <- freq1 %>%
+        group_by(term) %>%
+        summarize(total = sum(total)) %>% 
+        select(term, total) %>%
+        arrange(desc(total))
+
+saveRDS(freq1s, "freq1s.RDS")
+        
+
+freq2 <- readRDS(file = "freq2.RDS")
+freq3 <- readRDS(file = "freq3.RDS")
+freq4 <- readRDS(file = "freq4.RDS")
+
+cutsparse <- function (df, fn){
+        
+        df %>%
+                filter(total >1) %>%
+                saveRDS(fn)
+}
+
+cutsparse(freq2,"freq2s.RDS")
+cutsparse(freq3,"freq3s.RDS")
+cutsparse(freq4,"freq4s.RDS")
 
 
 ###########################################

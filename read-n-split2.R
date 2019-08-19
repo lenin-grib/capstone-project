@@ -5,7 +5,7 @@ filesen <- c("./final/en_US/en_US.twitter.txt",
 library(dplyr)
 library(reader)
 library(caret)
-library(dplyr)
+
 
 remove_outliers <- function(data) {
         first <- quantile(nchar(data), .15)
@@ -18,7 +18,9 @@ remove_outliers <- function(data) {
 readnsplit <- function(filename, name, nlines = 0) { 
         
         if (nlines != 0) {
-                textset <- n.readLines(filename, skip=0,n = nlines) ## read 10000 lines
+                con <- file(filename, "r") 
+                textset <- readLines(con, nlines, encoding = "UTF-8", skipNul = TRUE) ## read the file
+                close(con) ## read 10000 lines
         } else {
                 con <- file(filename, "r") 
                 textset <- readLines(con, encoding = "UTF-8", skipNul = TRUE) ## read the file
@@ -52,7 +54,7 @@ readnsplit <- function(filename, name, nlines = 0) {
         rm(list = ls())
 }
 
-set.seed(14082019)
+set.seed(19082019)
 
 readnsplit(filesen[1], "twi")
 readnsplit(filesen[2], "news")
