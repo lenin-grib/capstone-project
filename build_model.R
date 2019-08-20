@@ -20,10 +20,10 @@ freq3 <- preparefreq(freq3,3)
 freq4 <- preparefreq(freq4,4)
 freq5 <- preparefreq(freq5,5)
 
-teststr <- "blah blah"
+teststr <- "Just because there's good in him"
 simplepred4(teststr)
 simplepred5(teststr)
-wght <- c(0.01,10,10000,1000000,1000000)
+wght <- c(0.01,10,1000,100000,1000000)
 simplepred4(teststr,wght[1:4])
 simplepred5(teststr,wght)
 
@@ -41,15 +41,15 @@ valid <- sample_n(valid_full,ns)
 
 corpus <- cleancorpus(valid)
 
-names <- c("term", "real", "prediction", "hit")
-validres <- as.data.frame(matrix(ncol = 4, nrow = nrow(validdf)))
-colnames(validres) <- names
-
 ##### test with 4grams
 ngr4 <- custngram(corpus,4)
 quaddf <- makeDF(ngr4)
 validdf <- separate_last(quaddf,4) %>%
         select(-total)
+
+names <- c("term", "real", "prediction", "hit")
+validres <- as.data.frame(matrix(ncol = 4, nrow = nrow(valid)))
+colnames(validres) <- names
 
 ##### no weights
 for (i in 1:nrow(validdf)){
@@ -67,12 +67,12 @@ validsumup[1,] <- c(4, ns, "none", acc1)
 
 ##### test with 4grams, with weights
 
-wght <- c(0.1,10,10000,10000000)
+wght <- c(0.01,10,1000,100000,1000000)
 
 for (i in 1:nrow(validdf)){
         validres[i,1] <- validdf[i,1]
         validres[i,2] <- validdf[i,2]
-        validres[i,3] <- paste(simplepred4(validdf[i,1],wght), 
+        validres[i,3] <- paste(simplepred4(validdf[i,1],wght[1:4]), 
                 collapse=" ")
         validres[i,4] <- grepl(validres[i,2], validres[i,3], fixed=TRUE)
 }
@@ -82,6 +82,22 @@ acc2 <- paste0(round(nrow(validres[validres$hit == TRUE,])/
 
 validsumup[2,] <- c(4, ns, paste(wght,collapse = " "), acc2)
 
+##### test with 4grams, with weights
+
+wght <- c(0.01,10,100,1000,10000)
+
+for (i in 1:nrow(validdf)){
+        validres[i,1] <- validdf[i,1]
+        validres[i,2] <- validdf[i,2]
+        validres[i,3] <- paste(simplepred4(validdf[i,1],wght[1:4]), 
+                collapse=" ")
+        validres[i,4] <- grepl(validres[i,2], validres[i,3], fixed=TRUE)
+}
+
+acc3 <- paste0(round(nrow(validres[validres$hit == TRUE,])/
+                nrow(validres)*100, 2),"%")
+
+validsumup[3,] <- c(4, ns, paste(wght,collapse = " "), acc3)
 
 
 ##### test with 5grams

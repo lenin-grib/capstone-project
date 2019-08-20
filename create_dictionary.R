@@ -7,15 +7,9 @@ k=40
 trainlist <- split(train, (1:nrow(train) %% (k+1)))
 rm(train)
 
-#### for testing
-#k=10
-#subtrainlist <- split(subtrain, (1:nrow(subtrain) %% (k+1)))
-
 ## create dictionary with stopwords included
-process(trainlist, FALSE)
+process(trainlist)
 
-## create dictionary with stopwords filtered
-process(trainlist, TRUE)
 
 rm(list=ls())
 

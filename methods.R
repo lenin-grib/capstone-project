@@ -141,93 +141,67 @@ custngram <- function(corpus, ngr, stop = FALSE){
 
 ############# gathering frequency data 
 
-process <- function(lst, stop){
+process <- function(lst){
         
         unidf <- list()
-        
-        if (!stop){
-                bidf<- list()
-                tridf <- list()
-                quaddf<- list()
-                pendf <- list()
-        }
+        bidf<- list()
+        tridf <- list()
+        quaddf<- list()
+        pendf <- list()
         
         for (i in 1:k) {
                 corpus <- cleancorpus(lst[[i]])
                 
-                ngr1 <- custngram(corpus,1, stop)
-                if (!stop){
-                        ngr2 <- custngram(corpus,2, stop)
-                        ngr3 <- custngram(corpus,3, stop)
-                        ngr4 <- custngram(corpus,4, stop)
-                        ngr5 <- custngram(corpus,5, stop)
-                }
+                ngr1 <- custngram(corpus,1)
+                ngr1s <- custngram(corpus,1, TRUE)
+                
+                ngr2 <- custngram(corpus,2)
+                ngr3 <- custngram(corpus,3)
+                ngr4 <- custngram(corpus,4)
+                ngr5 <- custngram(corpus,5)
                 
                 unidf[[i]] <- makeDF(ngr1)
-                if (!stop){
-                        bidf[[i]] <- makeDF(ngr2)
-                        tridf[[i]] <- makeDF(ngr3)
-                        quaddf[[i]] <- makeDF(ngr4)
-                        pendf[[i]] <- makeDF(ngr5)
-                }
+                unidfs[[i]] <- makeDF(ngr1s)
+                bidf[[i]] <- makeDF(ngr2)
+                tridf[[i]] <- makeDF(ngr3)
+                quaddf[[i]] <- makeDF(ngr4)
+                pendf[[i]] <- makeDF(ngr5)
+                
                 
                 print(paste0(i/k*100,"% is completed"))
         }
         
         rm(corpus)
         
-        postfix <- if (stop) "stop_removed" else ""
-        
         freq1 <- joinlist(unidf)
-        saveRDS(freq1, paste0("freq1",postfix,".RDS"))
+        saveRDS(freq1, paste0("freq1.RDS"))
         print("1gram created")
         rm(unidf,freq1)
         
-        if (!stop){
-                freq2 <- joinlist(bidf)
-                saveRDS(freq2, "freq2.RDS")
-                print("2gram created")
-                rm(bidf,freq2)
-                
-                freq3 <- joinlist(tridf)
-                saveRDS(freq3, "freq3.RDS")
-                print("3gram created")
-                rm(tridf,freq3)
-                
-                freq4 <- joinlist(quaddf)
-                saveRDS(freq4, "freq4.RDS")
-                print("4gram created")
-                rm(quaddf,freq4)
-                
-                freq5 <- joinlist(pendf)
-                saveRDS(freq5, "freq5.RDS")
-                print("5gram created")
-                rm(pendf,freq5)
-        }
+        freq1s <- joinlist(unidfs)
+        saveRDS(freq1s, "freq1stopword_removed.RDS")
+        print("1sgram created")
+        rm(unidfs,freq1s)
         
-}
-### tmp
-process5 <- function(lst, stop){
+        freq2 <- joinlist(bidf)
+        saveRDS(freq2, "freq2.RDS")
+        print("2gram created")
+        rm(bidf,freq2)
         
-        pendf <- list()
-        unidf <- list()
-        for (i in 1:k) {
-                corpus <- cleancorpus(lst[[i]])
-                ngr1 <- custngram(corpus,1, TRUE)
-                ngr5 <- custngram(corpus,5, stop)
-                unidf[[i]] <- makeDF(ngr1)
-                pendf[[i]] <- makeDF(ngr5)
-                print(paste0(i/k*100,"% is completed"))
-        }
+        freq3 <- joinlist(tridf)
+        saveRDS(freq3, "freq3.RDS")
+        print("3gram created")
+        rm(tridf,freq3)
         
-        rm(corpus)
-        freq1 <- joinlist(unidf)
+        freq4 <- joinlist(quaddf)
+        saveRDS(freq4, "freq4.RDS")
+        print("4gram created")
+        rm(quaddf,freq4)
+        
         freq5 <- joinlist(pendf)
-        saveRDS(freq1, "freq1stopword_removed.RDS")
-        print("1gram created")
         saveRDS(freq5, "freq5.RDS")
         print("5gram created")
-        rm(pendf,freq5, unidf,freq1)
+        rm(pendf,freq5)
 }
 
 #### arrange the frequncy table
@@ -383,7 +357,7 @@ simplepred4 <- function(str,w = c(1,1,1,1), res = NULL){
         if (w[1] != w[4]){
                 res <- arrange(res, -wprob)
         }
-        print(res)
+        #print(res)
         return(head(res$end,3))
 }
 
@@ -405,7 +379,7 @@ simplepred5 <- function(str,w = c(1,1,1,1,1)){
                         arrange(-wprob) %>%
                         head(5)
         }
-        resturn(simplepred4(str,w[1:4],res5))
+        return(simplepred4(str,w[1:4],res5))
         
 }
 
