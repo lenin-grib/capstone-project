@@ -146,9 +146,10 @@ process <- function(lst, stop){
         unidf <- list()
         
         if (!stop){
-        bidf<- list()
-        tridf <- list()
-        quaddf<- list()
+                bidf<- list()
+                tridf <- list()
+                quaddf<- list()
+                pendf <- list()
         }
         
         for (i in 1:k) {
@@ -156,16 +157,18 @@ process <- function(lst, stop){
                 
                 ngr1 <- custngram(corpus,1, stop)
                 if (!stop){
-                ngr2 <- custngram(corpus,2, stop)
-                ngr3 <- custngram(corpus,3, stop)
-                ngr4 <- custngram(corpus,4, stop)
+                        ngr2 <- custngram(corpus,2, stop)
+                        ngr3 <- custngram(corpus,3, stop)
+                        ngr4 <- custngram(corpus,4, stop)
+                        ngr5 <- custngram(corpus,5, stop)
                 }
                 
                 unidf[[i]] <- makeDF(ngr1)
                 if (!stop){
-                bidf[[i]] <- makeDF(ngr2)
-                tridf[[i]] <- makeDF(ngr3)
-                quaddf[[i]] <- makeDF(ngr4)
+                        bidf[[i]] <- makeDF(ngr2)
+                        tridf[[i]] <- makeDF(ngr3)
+                        quaddf[[i]] <- makeDF(ngr4)
+                        pendf[[i]] <- makeDF(ngr5)
                 }
                 
                 print(paste0(i/k*100,"% is completed"))
@@ -181,39 +184,76 @@ process <- function(lst, stop){
         rm(unidf,freq1)
         
         if (!stop){
-        freq2 <- joinlist(bidf)
-        saveRDS(freq2, "freq2.RDS")
-        print("2gram created")
-        rm(bidf,freq2)
-        
-        freq3 <- joinlist(tridf)
-        saveRDS(freq3, "freq3.RDS")
-        print("3gram created")
-        rm(tridf,freq3)
-        
-        freq4 <- joinlist(quaddf)
-        saveRDS(freq4, "freq4.RDS")
-        print("4gram created")
-        rm(quaddf,freq4)
+                freq2 <- joinlist(bidf)
+                saveRDS(freq2, "freq2.RDS")
+                print("2gram created")
+                rm(bidf,freq2)
+                
+                freq3 <- joinlist(tridf)
+                saveRDS(freq3, "freq3.RDS")
+                print("3gram created")
+                rm(tridf,freq3)
+                
+                freq4 <- joinlist(quaddf)
+                saveRDS(freq4, "freq4.RDS")
+                print("4gram created")
+                rm(quaddf,freq4)
+                
+                freq5 <- joinlist(pendf)
+                saveRDS(freq5, "freq5.RDS")
+                print("5gram created")
+                rm(pendf,freq5)
         }
         
 }
+### tmp
+process5 <- function(lst, stop){
+        
+        pendf <- list()
+        unidf <- list()
+        for (i in 1:k) {
+                corpus <- cleancorpus(lst[[i]])
+                ngr1 <- custngram(corpus,1, TRUE)
+                ngr5 <- custngram(corpus,5, stop)
+                unidf[[i]] <- makeDF(ngr1)
+                pendf[[i]] <- makeDF(ngr5)
+                print(paste0(i/k*100,"% is completed"))
+        }
+        
+        rm(corpus)
+        freq1 <- joinlist(unidf)
+        freq5 <- joinlist(pendf)
+        saveRDS(freq1, "freq1stopword_removed.RDS")
+        print("1gram created")
+        saveRDS(freq5, "freq5.RDS")
+        print("5gram created")
+        rm(pendf,freq5, unidf,freq1)
+}
 
-##### group by starting phrase
-#group_prob <- function(df){
-#        df <- df %>%
-#                arrange(start, total) #%>%
-               # mutate(start = as.factor(start))
-#        return(df)
-#}
+#### arrange the frequncy table
+preparefreq <- function(df,n){
+        if (n==1){
+                df <- df %>%
+                        mutate(end = term, start = "", 
+                                prob = total/sum(total)) %>%
+                        filter(total > 1) %>%
+                        head(10) %>%
+                        select(start,end, total, prob)  
+        } else {
+                df <- df %>%
+                        mutate(prob = total/sum(total)) %>%
+                        filter(total > 1) %>%
+                        separate_last(n) 
+        }
+}
+
 
 #### extract last words into separate column
 separate_last <- function(df, n){
         if (n==2) {
                 df <- df %>%
                         separate(term, 
-                                into = c("start", "end"), sep = " ") #%>%
-                        #group_prob
+                                into = c("start", "end"), sep = " ")
         } else {
                 if (n==3)
                 {
@@ -222,8 +262,7 @@ separate_last <- function(df, n){
                                         into = c("start1", "start2","end"),
                                         sep = " ") %>%
                                 unite("start", c("start1", "start2"), 
-                                        sep = " " ) # %>%
-                                #group_prob
+                                        sep = " " )
                 } else {
                         if (n==4)
                         {
@@ -234,8 +273,24 @@ separate_last <- function(df, n){
                                                 sep = " ") %>%
                                         unite("start", c("start1", "start2", 
                                                 "start3"), 
-                                                sep = " " )# %>%
-                                        #group_prob
+                                                sep = " " )
+                        } else {
+                                if (n == 5)
+                                {
+                                        df <- df %>%
+                                                separate(term, 
+                                                        into = c("start1", 
+                                                                "start2", 
+                                                                "start3", 
+                                                                "start4", 
+                                                                "end"),
+                                                        sep = " ") %>%
+                                                unite("start", 
+                                                        c("start1","start2",
+                                                                "start3",
+                                                                "start4"), 
+                                                        sep = " " )      
+                                }
                         }
                 }
         }
@@ -255,11 +310,11 @@ return_last <- function(str, n){
 }
 
 ####### simplest prediction using not weighted backoff algorithm
-simplepred <- function(str){
+simplepred4 <- function(str,w = c(1,1,1,1), res = NULL){
         
         str <- tolower(str)
+        str <- gsub('[[:punct:] ]+',' ',str)
         lng <- str_count(str,"\\S+")
-        res = NULL
         
         if (lng == 0){
                 res <- freqstart %>%
@@ -274,44 +329,83 @@ simplepred <- function(str){
         if (lng == 3){
                 res <- freq4 %>%
                         filter(start == str) %>%
-                        arrange(-total) %>%
+                        mutate(wprob = prob*w[4]) %>%
+                        arrange(-wprob) %>%
                         head(5)
-                if (nrow(res) == 0){
-                        str <- return_last(str, 2)
-                        lng <- str_count(str,"\\S+")
-                }
+                
+                str <- return_last(str, 2)
+                lng <- str_count(str,"\\S+")
         }
         
         if (lng == 2){
-                res <- freq3 %>%
+                rest <- freq3 %>%
                         filter(start == str) %>%
+                        mutate(wprob = prob*w[3]) %>%
                         arrange(-total) %>%
                         head(5)
-                if (nrow(res) == 0){
-                        str <- return_last(str, 1)
-                        lng <- str_count(str,"\\S+")
-                }
+                res <- rbind(res,rest)
+                str <- return_last(str, 1)
+                lng <- str_count(str,"\\S+")
         }
         
         if (lng == 1){
-                res <- freq2 %>%
+                rest <- freq2 %>%
                         filter(start == str) %>%
+                        mutate(wprob = prob*w[2]) %>%
                         arrange(-total) %>%
                         head(5)
-                if (nrow(res) == 0){
-                        str <- ""
-                        lng <- str_count(str,"\\S+")
-                }
+                res <- rbind(res,rest)
+                str <- ""
+                lng <- str_count(str,"\\S+")
         }
         
         if (lng == 0){
                 res1 <- freq1 %>%
+                        mutate(wprob = prob*w[1]) %>%
                         head(2)
                 res2 <- freq1sw %>%
+                        mutate(wprob = prob*w[1]) %>%
                         head(3)
-                res <- rbind(res1,res2)
+                rest <- rbind(res1,res2)
+                res <- rbind(res,rest)
         }
         
-        res
+        if (nrow(res) < 3){
+                res1 <- freq1 %>%
+                        mutate(wprob = prob*w[1]) %>%
+                        head(1)
+                res2 <- freq1sw %>%
+                        mutate(wprob = prob*w[1]) %>%
+                        head(1)
+                rest <- rbind(res1,res2)
+                res <- rbind(res,rest)
+        }
+        if (w[1] != w[4]){
+                res <- arrange(res, -wprob)
+        }
+        print(res)
         return(head(res$end,3))
 }
+
+simplepred5 <- function(str,w = c(1,1,1,1,1)){
+        str <- tolower(str)
+        str <- gsub('[[:punct:] ]+',' ',str)
+        lng <- str_count(str,"\\S+")
+        res5 = NULL
+        
+        if (lng>4) {
+                str<-return_last(str,4)
+                lng <- str_count(str,"\\S+")
+        }
+        
+        if (lng == 5){
+                res5 <- freq5 %>%
+                        filter(start == str) %>%
+                        mutate(wprob = prob*w[5]) %>%
+                        arrange(-wprob) %>%
+                        head(5)
+        }
+        resturn(simplepred4(str,w[1:4],res5))
+        
+}
+
