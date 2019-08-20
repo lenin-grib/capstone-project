@@ -354,10 +354,16 @@ simplepred4 <- function(str,w = c(1,1,1,1), res = NULL){
                 rest <- rbind(res1,res2)
                 res <- rbind(res,rest)
         }
+        res <- res %>%
+                group_by(start) %>%
+                summarize(total = sum(total),
+                        prob = sum(prob),
+                        wprob = sum(wprob))
+        
         if (w[1] != w[4]){
                 res <- arrange(res, -wprob)
         }
-        #print(res)
+        print(res)
         return(head(res$end,3))
 }
 

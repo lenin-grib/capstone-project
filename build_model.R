@@ -20,7 +20,7 @@ freq3 <- preparefreq(freq3,3)
 freq4 <- preparefreq(freq4,4)
 freq5 <- preparefreq(freq5,5)
 
-teststr <- "Just because there's good in him"
+teststr <- "If this isn't"
 simplepred4(teststr)
 simplepred5(teststr)
 wght <- c(0.01,10,1000,100000,1000000)
