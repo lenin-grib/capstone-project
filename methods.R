@@ -21,15 +21,13 @@ remove_outliers <- function(data) {
 
 readnsplit <- function(filename, name, nlines = 0) { 
         
+        con <- file(filename, "r") 
         if (nlines != 0) {
-                con <- file(filename, "r") 
-                textset <- readLines(con, nlines, encoding = "UTF-8", skipNul = TRUE) ## read the file
-                close(con) ## read 10000 lines
+                textset <- readLines(con, nlines, encoding = "UTF-8", skipNul = TRUE) 
         } else {
-                con <- file(filename, "r") 
-                textset <- readLines(con, encoding = "UTF-8", skipNul = TRUE) ## read the file
-                close(con) 
+                textset <- readLines(con, encoding = "UTF-8", skipNul = TRUE)
         }
+        close(con)
         
         textset <- remove_outliers(textset)
         textset <- as.data.frame(textset)
@@ -110,14 +108,6 @@ makeDF <- function(ng) {
         return(tmp)
 }
 
-shapefreq <- function(df){
-        df <- df %>%
-                group_by(term) %>% 
-                summarize(total = sum(total)) %>% 
-                select(term, total) %>%
-                arrange(desc(total))
-        return(df)
-}
 
 ######### join lists (chunks of data) to data frame
 
@@ -128,7 +118,7 @@ joinlist <- function (list){
         for (i in 1:k){
                 freqdf <- rbind(freqdf, list[[i]])
         }
-        freqdf %>% 
+        freqdf <- freqdf %>% 
                 group_by(term) %>% 
                 summarize(count = sum(total)) %>% 
                 arrange(count)
@@ -178,39 +168,26 @@ process <- function(lst, stop){
         postfix <- if (stop) "stop_removed" else ""
         
         freq1 <- joinlist(unidf)
-        freq1 <- shapefreq(freq1)
         saveRDS(freq1, paste0("freq1",postfix,".RDS"))
         print("1gram created")
         rm(unidf,freq1)
         
         freq2 <- joinlist(bidf)
-        freq2 <- shapefreq(freq2)
         saveRDS(freq2, paste0("freq2",postfix,".RDS"))
         print("2gram created")
         rm(bidf,freq2)
         
         freq3 <- joinlist(tridf)
-        freq3 <- shapefreq(freq3)
         saveRDS(freq3, paste0("freq3",postfix,".RDS"))
         print("3gram created")
-        rm(triidf,freq3)
+        rm(tridf,freq3)
         
         freq4 <- joinlist(quaddf)
-        freq4 <- shapefreq(freq4)
         saveRDS(freq4, paste0("freq4",postfix,".RDS"))
         print("4gram created")
-        rm(quadf,freq4)
+        rm(quaddf,freq4)
         
 }
-
-##### cut terms that are ily met once and save to file
-#cutsparse <- function (df, fn){
- #       
- #       df %>%
- #               filter(total >1) %>%
- #               saveRDS(fn)
-#}
-
 
 ##### group by starting phrase
 group_prob <- function(df){
@@ -247,7 +224,8 @@ separate_last <- function(df, n){
                                                 sep = " ") %>%
                                         unite("start", c("start1", "start2", 
                                                 "start3"), 
-                                                sep = " " )
+                                                sep = " " ) %>%
+                                        group_prob
                         }
                 }
         }
