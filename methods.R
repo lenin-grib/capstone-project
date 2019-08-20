@@ -6,6 +6,7 @@ library(stringr)
 library(reader)
 library(caret)
 library(tidyr)
+library(DescTools)
 
 ###### remove very short and very long entries
 
@@ -143,22 +144,29 @@ custngram <- function(corpus, ngr, stop = FALSE){
 process <- function(lst, stop){
         
         unidf <- list()
+        
+        if (!stop){
         bidf<- list()
         tridf <- list()
         quaddf<- list()
+        }
         
         for (i in 1:k) {
                 corpus <- cleancorpus(lst[[i]])
                 
                 ngr1 <- custngram(corpus,1, stop)
+                if (!stop){
                 ngr2 <- custngram(corpus,2, stop)
                 ngr3 <- custngram(corpus,3, stop)
                 ngr4 <- custngram(corpus,4, stop)
+                }
                 
                 unidf[[i]] <- makeDF(ngr1)
+                if (!stop){
                 bidf[[i]] <- makeDF(ngr2)
                 tridf[[i]] <- makeDF(ngr3)
                 quaddf[[i]] <- makeDF(ngr4)
+                }
                 
                 print(paste0(i/k*100,"% is completed"))
         }
@@ -172,38 +180,40 @@ process <- function(lst, stop){
         print("1gram created")
         rm(unidf,freq1)
         
+        if (!stop){
         freq2 <- joinlist(bidf)
-        saveRDS(freq2, paste0("freq2",postfix,".RDS"))
+        saveRDS(freq2, "freq2.RDS")
         print("2gram created")
         rm(bidf,freq2)
         
         freq3 <- joinlist(tridf)
-        saveRDS(freq3, paste0("freq3",postfix,".RDS"))
+        saveRDS(freq3, "freq3.RDS")
         print("3gram created")
         rm(tridf,freq3)
         
         freq4 <- joinlist(quaddf)
-        saveRDS(freq4, paste0("freq4",postfix,".RDS"))
+        saveRDS(freq4, "freq4.RDS")
         print("4gram created")
         rm(quaddf,freq4)
+        }
         
 }
 
 ##### group by starting phrase
-group_prob <- function(df){
-        df <- df %>%
-                arrange(start, total) #%>%
+#group_prob <- function(df){
+#        df <- df %>%
+#                arrange(start, total) #%>%
                # mutate(start = as.factor(start))
-        return(df)
-}
+#        return(df)
+#}
 
 #### extract last words into separate column
 separate_last <- function(df, n){
         if (n==2) {
                 df <- df %>%
                         separate(term, 
-                                into = c("start", "end"), sep = " ") %>%
-                        group_prob
+                                into = c("start", "end"), sep = " ") #%>%
+                        #group_prob
         } else {
                 if (n==3)
                 {
@@ -212,8 +222,8 @@ separate_last <- function(df, n){
                                         into = c("start1", "start2","end"),
                                         sep = " ") %>%
                                 unite("start", c("start1", "start2"), 
-                                        sep = " " ) %>%
-                                group_prob
+                                        sep = " " ) # %>%
+                                #group_prob
                 } else {
                         if (n==4)
                         {
@@ -224,11 +234,84 @@ separate_last <- function(df, n){
                                                 sep = " ") %>%
                                         unite("start", c("start1", "start2", 
                                                 "start3"), 
-                                                sep = " " ) %>%
-                                        group_prob
+                                                sep = " " )# %>%
+                                        #group_prob
                         }
                 }
         }
         return(df)
         
+}
+
+#### return last N words from the string
+return_last <- function(str, n){
+        res <- NULL
+        a<-tail(strsplit(str, split=" ")[[1]],n," ")
+        for (i in 1:n){
+                res<- StrTrim(paste(res, a[i]), 
+                        pattern = " \t\n", method = "both")
+        }
+        return(res)
+}
+
+####### simplest prediction using not weighted backoff algorithm
+simplepred <- function(str){
+        
+        str <- tolower(str)
+        lng <- str_count(str,"\\S+")
+        res = NULL
+        
+        if (lng == 0){
+                res <- freqstart %>%
+                        head(3)
+        }
+        
+        if (lng>3) {
+                str<-return_last(str,3)
+                lng <- str_count(str,"\\S+")
+        }
+        
+        if (lng == 3){
+                res <- freq4 %>%
+                        filter(start == str) %>%
+                        arrange(-total) %>%
+                        head(5)
+                if (nrow(res) == 0){
+                        str <- return_last(str, 2)
+                        lng <- str_count(str,"\\S+")
+                }
+        }
+        
+        if (lng == 2){
+                res <- freq3 %>%
+                        filter(start == str) %>%
+                        arrange(-total) %>%
+                        head(5)
+                if (nrow(res) == 0){
+                        str <- return_last(str, 1)
+                        lng <- str_count(str,"\\S+")
+                }
+        }
+        
+        if (lng == 1){
+                res <- freq2 %>%
+                        filter(start == str) %>%
+                        arrange(-total) %>%
+                        head(5)
+                if (nrow(res) == 0){
+                        str <- ""
+                        lng <- str_count(str,"\\S+")
+                }
+        }
+        
+        if (lng == 0){
+                res1 <- freq1 %>%
+                        head(2)
+                res2 <- freq1sw %>%
+                        head(3)
+                res <- rbind(res1,res2)
+        }
+        
+        res
+        return(head(res$end,3))
 }
