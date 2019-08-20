@@ -29,108 +29,63 @@ simplepred5(teststr,wght)
 
 ####### test accuracy on validation dataset
 
-names <- c("Ngrams", "samplesize", "weights", "accuracy")
-validsumup <- as.data.frame(matrix(ncol = 4, nrow = 4))
+names <- c("Ngrams", "samplesize", "weights", "accuracy", "time")
+validsumup <- as.data.frame(matrix(ncol = 5, nrow = 6))
 colnames(validsumup) <- names
 
 valid_full <- readRDS("merged_valid.RDS")
 
-set.seed(13)
-ns = 1000
+#### sample 1000 lines from validation set and test few approaches on it
+set.seed(20082019)
+ns = 1000 
 valid <- sample_n(valid_full,ns)
 
 corpus <- cleancorpus(valid)
 
-##### test with 4grams
+wght1 <- c(0.01,10,1000,100000,10000000)
+wght2 <- c(0.001,1,1000,1000000,100000000)
+
+##### test with ngrams up to 4
 ngr4 <- custngram(corpus,4)
 quaddf <- makeDF(ngr4)
-validdf <- separate_last(quaddf,4) %>%
+validdf4 <- separate_last(quaddf,4) %>%
         select(-total)
 
-names <- c("term", "real", "prediction", "hit")
-validres <- as.data.frame(matrix(ncol = 4, nrow = nrow(valid)))
-colnames(validres) <- names
 
-##### no weights
-for (i in 1:nrow(validdf)){
-     validres[i,1] <- validdf[i,1]
-     validres[i,2] <- validdf[i,2]
-     validres[i,3] <- paste(simplepred4(validdf[i,1]), 
-             collapse=" ")
-     validres[i,4] <- grepl(validres[i,2], validres[i,3], fixed=TRUE)
-}
+##### test with ngrams up to 4, no weights
+timer <- round(system.time({acc <- validate_pred(validdf4)}),3)
+validsumup[1,] <- c(4, ns, "none", acc, timer[1])
 
-acc1 <- paste0(round(nrow(validres[validres$hit == TRUE,])/
-                nrow(validres)*100, 2),"%")
+##### test with ngrams up to 4, with weights 1
 
-validsumup[1,] <- c(4, ns, "none", acc1)
+timer <- round(system.time({acc <- validate_pred(validdf4, wght1)}),3)
+validsumup[2,] <- c(4, ns, paste(wght1,collapse = " "), acc, timer[1])
 
-##### test with 4grams, with weights
+##### test with ngrams up to 4, with weights 2
 
-wght <- c(0.01,10,1000,100000,1000000)
+timer <- round(system.time({acc <- validate_pred(validdf4, wght2)}),3)
+validsumup[3,] <- c(4, ns, paste(wght2,collapse = " "), acc, timer[1])
 
-for (i in 1:nrow(validdf)){
-        validres[i,1] <- validdf[i,1]
-        validres[i,2] <- validdf[i,2]
-        validres[i,3] <- paste(simplepred4(validdf[i,1],wght[1:4]), 
-                collapse=" ")
-        validres[i,4] <- grepl(validres[i,2], validres[i,3], fixed=TRUE)
-}
-
-acc2 <- paste0(round(nrow(validres[validres$hit == TRUE,])/
-                nrow(validres)*100, 2),"%")
-
-validsumup[2,] <- c(4, ns, paste(wght,collapse = " "), acc2)
-
-##### test with 4grams, with weights
-
-wght <- c(0.01,10,100,1000,10000)
-
-for (i in 1:nrow(validdf)){
-        validres[i,1] <- validdf[i,1]
-        validres[i,2] <- validdf[i,2]
-        validres[i,3] <- paste(simplepred4(validdf[i,1],wght[1:4]), 
-                collapse=" ")
-        validres[i,4] <- grepl(validres[i,2], validres[i,3], fixed=TRUE)
-}
-
-acc3 <- paste0(round(nrow(validres[validres$hit == TRUE,])/
-                nrow(validres)*100, 2),"%")
-
-validsumup[3,] <- c(4, ns, paste(wght,collapse = " "), acc3)
-
-
-##### test with 5grams
+##### test with ngrams up to 5
 ngr5 <- custngram(corpus,5)
 pendf <- makeDF(ngr5)
-validdf <- separate_last(quaddf,5) %>%
+validdf5 <- separate_last(pendf,5) %>%
         select(-total)
 
-#### no weights
+#### test with ngrams up to 5, no weights
 
-for (i in 1:nrow(validdf)){
-        validres[i,1] <- validdf[i,1]
-        validres[i,2] <- validdf[i,2]
-        validres[i,3] <- paste(simplepred5(validdf[i,1]), 
-                collapse=" ")
-        validres[i,4] <- grepl(validres[i,2], validres[i,3], fixed=TRUE)
-}
+timer <- round(system.time({acc <- validate_pred(validdf5)}),3)
+validsumup[4,] <- c(5, ns, "none", acc, timer[1])
 
-acc3 <- paste0(round(nrow(validres[validres$hit == TRUE,])/
-                nrow(validres)*100, 2),"%")
-validsumup[3,] <- c(5, ns, "none", acc3)
+#### test with ngrams up to 5, with weights 1
 
-#### with weights
-wght <- c(0.1,10,10000,10000000, 10000000000)
+timer <- round(system.time({acc <- validate_pred(validdf5, wght1)}),3)
+validsumup[5,] <- c(5, ns, paste(wght1,collapse = " "), acc, timer[1])
 
-for (i in 1:nrow(validdf)){
-        validres[i,1] <- validdf[i,1]
-        validres[i,2] <- validdf[i,2]
-        validres[i,3] <- paste(simplepred5(validdf[i,1], wght), 
-                collapse=" ")
-        validres[i,4] <- grepl(validres[i,2], validres[i,3], fixed=TRUE)
-}
+#### test with ngrams up to 5, with weights 2
 
-acc4 <- paste0(round(nrow(validres[validres$hit == TRUE,])/
-                nrow(validres)*100, 2),"%")
-validsumup[3,] <- c(5, ns, paste(wght,collapse = " "), acc4)
+timer <- round(system.time({acc <- validate_pred(validdf5, wght2)}),3)
+validsumup[6,] <- c(5, ns, paste(wght2,collapse = " "), acc, timer[1])
+
+#### RESULTS
+validsumup

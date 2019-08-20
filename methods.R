@@ -249,7 +249,7 @@ separate_last <- function(df, n){
                                                 "start3"), 
                                                 sep = " " )
                         } else {
-                                if (n == 5)
+                                if (n==5)
                                 {
                                         df <- df %>%
                                                 separate(term, 
@@ -381,5 +381,28 @@ simplepred5 <- function(str,w = c(1,1,1,1,1)){
         }
         return(simplepred4(str,w[1:4],res5))
         
+}
+
+#### run predictions and compare with validation dataset
+validate_pred <- function(df, w = c(1,1,1,1,1)){
+        names <- c("term", "real", "prediction", "hit")
+        validres <- as.data.frame(matrix(ncol = 4, nrow = nrow(validdf)))
+        colnames(validres) <- names
+        
+        for (i in 1:nrow(df)){
+                validres[i,1] <- df[i,1]
+                validres[i,2] <- df[i,2]
+                validres[i,3] <- paste(simplepred5(df[i,1],w), 
+                        collapse=" ")
+                validres[i,4] <- grepl(validres[i,2], validres[i,3], fixed=TRUE)
+                if ((i %% 1000) == 0){
+                        print(paste(i,"lines processed"))
+                        print(paste(nrow(df)-i,"left"))
+                }
+        }
+        
+        acc <- paste0(round(nrow(validres[validres$hit == TRUE,])/
+                        nrow(validres)*100, 2),"%")
+        return(acc)
 }
 
